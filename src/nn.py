@@ -16,13 +16,17 @@ from sklearn.metrics import precision_score, recall_score, f1_score
 class NeuralNetwork:
 	def __init__(self) -> None:
 		self.df = pd.read_csv("dataset\spam_or_not_spam\spam_or_not_spam.csv")
-		self.__setup()
+		choice = int(input("Do you want to: \n1. Load the Word Model \n2. Train the Word Model\n"))
+		self.__setup(choice)
 
-	def __setup(self) -> None:		
+	def __setup(self, choice) -> None:		
 		nltk.download("punkt")
 		nltk.download("stopwords")
 		self.__set_emails()
-		self.__create_word_model()
+		if choice == 2:
+			self.__create_word_model()
+		else:
+			self.word_model = Word2Vec.load("models/word_model.bin")
 		self.__apply_word2vec()
 		self.__split_dataset()
 
@@ -105,7 +109,6 @@ class NeuralNetwork:
 			for index, j in enumerate(i):
 				if isnan(j):
 					i[index] = 0.5
-
 		xtf = tf.cast(x, tf.float32)
 		ytf = tf.cast(y, tf.int32)
 
