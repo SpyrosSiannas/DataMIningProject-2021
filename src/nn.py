@@ -1,3 +1,6 @@
+import enum
+from math import isnan
+from nltk import downloader
 import pandas as pd
 import numpy as np
 from gensim.models import Word2Vec
@@ -7,24 +10,30 @@ from nltk.corpus import stopwords
 import tensorflow as tf
 import src.cfg as cfg
 from keras.models import model_from_json
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 
 class NeuralNetwork:
 	def __init__(self) -> None:
 		self.df = pd.read_csv("dataset\spam_or_not_spam\spam_or_not_spam.csv")
-		self.__set_emails()
 		choice = int(input("Do you want to: \n1. Load the Word Model \n2. Train the Word Model\n"))
+		self.__setup(choice)
+
+	def __setup(self, choice) -> None:		
 		nltk.download("punkt")
 		nltk.download("stopwords")
+		self.__set_emails()
 		if choice == 2:
 			self.__create_word_model()
 		else:
 			self.word_model = Word2Vec.load("models/word_model.bin")
-		self.train_nn_model()
-	
+		self.__apply_word2vec()
+		self.__split_dataset()
+
 	def __preprocess_dataframe(self) -> None:
 		self.df.dropna(inplace=True)
-		self.df.email.drop_duplicates()
+		self.df.drop(self.df.tail(1).index,inplace=True)
+		self.df = self.df.drop_duplicates()
 
 	def __preprocess_text(self, text) -> list:
 		tokens = word_tokenize(text)
@@ -58,24 +67,27 @@ class NeuralNetwork:
 	def __apply_word2vec(self) -> None:
 		self.df.email = self.df.email.apply(self.__preprocess_text)
 		self.df.email = self.df.email.apply(self.__vectorize)
+	
 
 	def __create_nn_model(self) -> None:
 		model = tf.keras.Sequential([
-			tf.keras.layers.Dense(self.df.emails.shape[0], activation='relu'),
-			tf.keras.layers.Dropout(0.15),
+			tf.keras.layers.Dense(self.dataset_train.shape[0], activation='relu'),
+			tf.keras.layers.Dropout(0.1),
+			tf.keras.layers.Dense(self.dataset_train.shape[0], activation='relu'),
+			tf.keras.layers.Dropout(0.1),
 			tf.keras.layers.Dense(1, activation='sigmoid')
 		])
 
-		model.compile(optimizer='adam', loss='crossentropy', metrics=['accuracy'])
+		model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 		self.__nn_model = model
 
 
 	def train_nn_model(self) -> None:
-		self.__apply_word2vec()
-		self.__split_dataset()
 		self.__create_nn_model()
-		x = tf.cast(self.dataset_train.email, tf.float32)
-        	y = tf.cast(self.dataset_train.label, tf.float32)	
+		x = np.array(self.dataset_train.email.tolist())
+		y = np.array(self.dataset_train.label.tolist())
+		x = tf.cast(x, tf.float32)
+		y = tf.cast(y, tf.int32)
 		size = self.dataset_train.shape[0]
 		dataset = tf.data.Dataset.from_tensor_slices(
 		(
@@ -88,6 +100,31 @@ class NeuralNetwork:
 		print("Training Complete! Saving model to /models...")
 		self.__savemodel()
 
+	def test_nn(self) -> None:
+		# evaluate loaded model on test data
+		x = np.array(self.dataset_test.email.tolist())
+		y = np.array(self.dataset_test.label.tolist())
+
+		for i in x:
+			for index, j in enumerate(i):
+				if isnan(j):
+					i[index] = 0.5
+					
+		xtf = tf.cast(x, tf.float32)
+		ytf = tf.cast(y, tf.int32)
+
+		y_predicted = self.__nn_model.predict(xtf)
+		print(y_predicted)
+		y_predicted = y_predicted.reshape(y_predicted.shape[0],1)
+		y = y.reshape(y.shape[0],1)
+		for num in y_predicted:
+			print(num)
+			if num[0] <= 0.5:
+				num[0] = 0
+			else: 
+				num[0] = 1
+		print(precision_score(y_predicted, y), recall_score(y_predicted, y), f1_score(y_predicted,y))
+
 	def __savemodel(self) -> None:
 		model_json = self.__nn_model.to_json()
 		with open("models/nn_model.json", "w") as json_file:
@@ -96,16 +133,16 @@ class NeuralNetwork:
 			self.__nn_model.save_weights("models/model.h5")
 			print("Saved model to disk")
 	
-	def __loadmodel(self) -> None:
+	def loadmodel(self) -> None:
 		# load json and create model
-		json_file = open('models/model.json', 'r')
+		json_file = open('models/nn_model.json', 'r')
 		loaded_model_json = json_file.read()
 		json_file.close()
 		loaded_model = model_from_json(loaded_model_json)
 		# load weights into new model
 		loaded_model.load_weights("models/model.h5")
 		print("Loaded model from disk")
-		loaded_model.compile(optimizer='adam', loss='crossentropy', metrics=['accuracy'])
+		loaded_model.compile(optimizer='adam', loss='binary_crossentropy',  metrics=['accuracy'])
 		self.__nn_model = loaded_model
 	
 	def __split_dataset(self) -> None:
