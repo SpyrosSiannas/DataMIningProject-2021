@@ -15,7 +15,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score
 
 class NeuralNetwork:
 	def __init__(self) -> None:
-		self.df = pd.read_csv("dataset\spam_or_not_spam\spam_or_not_spam.csv")
+		self.df = pd.read_csv("dataset/spam_or_not_spam/spam_or_not_spam.csv")
 		choice = int(input("Do you want to: \n1. Load the Word Model \n2. Train the Word Model\n"))
 		self.__setup(choice)
 
