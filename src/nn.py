@@ -19,7 +19,8 @@ class NeuralNetwork:
 		if choice == 2:
 			self.__create_word_model()
 		else:
-			self.word_model = Word2Vec.load("models//word_model.bin")
+			self.word_model = Word2Vec.load("models/word_model.bin")
+		self.train_nn_model()
 	
 	def __preprocess_dataframe(self) -> None:
 		self.df.dropna(inplace=True)
@@ -88,7 +89,7 @@ class NeuralNetwork:
 		self.__savemodel()
 
 	def __savemodel(self) -> None:
-		model_json = self.__model.to_json()
+		model_json = self.__nn_model.to_json()
 		with open("models/nn_model.json", "w") as json_file:
 			json_file.write(model_json)
 			# serialize weights to HDF5
@@ -107,7 +108,7 @@ class NeuralNetwork:
 		loaded_model.compile(optimizer='adam', loss='crossentropy', metrics=['accuracy'])
 		self.__nn_model = loaded_model
 	
-	def __split_database(self) -> None:
+	def __split_dataset(self) -> None:
 		n_rows=self.df.shape[0]
 		split_point = round(n_rows*0.75)
 		self.dataset_train = self.df.iloc[:split_point,:]
