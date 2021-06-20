@@ -117,7 +117,6 @@ class NeuralNetwork:
 		y_predicted = y_predicted.reshape(y_predicted.shape[0],1)
 		y = y.reshape(y.shape[0],1)
 		for num in y_predicted:
-			print(num)
 			if num[0] <= 0.5:
 				num[0] = 0
 			else: 
